@@ -17,7 +17,7 @@ async function app() {
   const stats = require(`${path}/core/${lastDataFile}`);
 
   const browser = await webkit.launch({
-    headless: false
+    headless: true
   });
   const page = await browser.newPage();
 
