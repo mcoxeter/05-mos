@@ -45,7 +45,7 @@ async function app() {
   ].replace('%', '');
   let growthNotes = 'We chose our growth calculation. calcuated from the FCF.';
   let growth = ourGrowth;
-  if (ourGrowth > 20) {
+  if (ourGrowth > 20 && ourGrowth > Number(analystsGrowthNext5Years)) {
     growthNotes =
       'We chose the analysts growth calculation. ourGrowth is too high.';
     growth = analystsGrowthNext5Years;
