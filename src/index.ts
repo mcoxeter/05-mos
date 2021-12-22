@@ -80,7 +80,7 @@ async function app() {
     date: nowDateStr,
     calculator: 'https://tradebrains.in/dcf-calculator/',
     notes:
-      'These values are conservative. You may need to adjust the expectedGrowth based on your deep understanding of the business.',
+      'The predicted growth rate is the least certian. You will need to adjust it based on your deep understanding of the business.',
     fcf: Math.round(stats['FreeCashFlowAverage']).toString(),
     cash_and_equiv: Math.round(currentcash_and_equiv).toString(),
     longTermDebt: Math.round(currentLongTermDebt).toString(),

@@ -1,4 +1,4 @@
-# 04-mos
+# 05-mos
 
 This program will attempt to find a buy and sell price for a stock by calculating the intrinsic value of the stock using the discounted cash flow method.
 
@@ -20,7 +20,7 @@ The following values are used in the calculation
 
 **Predicted growth**
 
-> The average growth rate of FCF over the last three years or the analysts prediction.
+> The average growth rate of FCF over the last three years or the analysts prediction. The predicted growth rate is the least certian value. You will need to adjust it based on your deep understanding of the business.
 
 ## Setup
 
