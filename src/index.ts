@@ -73,14 +73,8 @@ async function app() {
   const cash_and_equiv10 = lastNFromArray<number>(10, annual.cash_and_equiv);
   const currentcash_and_equiv = cash_and_equiv10[9];
 
-  const input = {
-    type: '05-mos',
-    symbol,
-    references: [],
-    date: nowDateStr,
+  const dcfAnalysis = {
     calculator: 'https://tradebrains.in/dcf-calculator/',
-    notes:
-      'The predicted growth rate is the least certian. You will need to adjust it based on your deep understanding of the business.',
     fcf: Math.round(stats['FreeCashFlowAverage']).toString(),
     cash_and_equiv: Math.round(currentcash_and_equiv).toString(),
     longTermDebt: Math.round(currentLongTermDebt).toString(),
@@ -95,33 +89,53 @@ async function app() {
     buyPrice: 0
   };
 
-  await page.goto(input.calculator);
-  await enterString(page, '#fieldname4_1', input.fcf);
-  await enterString(page, '#fieldname2_1', input.cash_and_equiv);
-  await enterString(page, '#fieldname3_1', input.longTermDebt);
+  const warrenBuffettAnalysis = analyseWithWarrenBuffetsMethod(
+    stats,
+    growth / 100
+  );
 
-  await enterString(page, '#fieldname5_1', input.sharesOutstanding);
+  const mos = {
+    type: '05-mos',
+    symbol,
+    references: [],
+    date: nowDateStr,
 
-  await enterString(page, '#fieldname6_1', input.expectedGrowth);
-  await enterString(page, '#fieldname7_1', input.discountRate);
-  await enterString(page, '#fieldname8_1', input.multiple);
-  await enterString(page, '#fieldname77_1', input.mos);
-  await enterString(page, '#fieldname80_1', input.currentPrice);
+    notes:
+      'The predicted growth rate is the least certian. You will need to adjust it based on your deep understanding of the business.',
+    dcfAnalysis,
+    warrenBuffettAnalysis
+  };
+
+  await page.goto(mos.dcfAnalysis.calculator);
+  await enterString(page, '#fieldname4_1', mos.dcfAnalysis.fcf);
+  await enterString(page, '#fieldname4_1', mos.dcfAnalysis.fcf);
+  await enterString(page, '#fieldname2_1', mos.dcfAnalysis.cash_and_equiv);
+  await enterString(page, '#fieldname3_1', mos.dcfAnalysis.longTermDebt);
+
+  await enterString(page, '#fieldname5_1', mos.dcfAnalysis.sharesOutstanding);
+
+  await enterString(page, '#fieldname6_1', mos.dcfAnalysis.expectedGrowth);
+  await enterString(page, '#fieldname7_1', mos.dcfAnalysis.discountRate);
+  await enterString(page, '#fieldname8_1', mos.dcfAnalysis.multiple);
+  await enterString(page, '#fieldname77_1', mos.dcfAnalysis.mos);
+  await enterString(page, '#fieldname80_1', mos.dcfAnalysis.currentPrice);
 
   const intrinsicValueAfterDiscount = await page.waitForSelector(
     '#fieldname74_1'
   );
-  input.sellPrice =
+  mos.dcfAnalysis.sellPrice =
     Number(await intrinsicValueAfterDiscount.inputValue()) *
-    (100 / Number(input.mos));
+    (100 / Number(mos.dcfAnalysis.mos));
 
-  input.buyPrice = Number(await intrinsicValueAfterDiscount.inputValue());
+  mos.dcfAnalysis.buyPrice = Number(
+    await intrinsicValueAfterDiscount.inputValue()
+  );
 
   console.log('Writing ', `${path}/05-mos/${nowDateStr}.json`);
   try {
     fs.writeFileSync(
       `${path}/05-mos/${nowDateStr}.json`,
-      JSON.stringify(input, undefined, 4)
+      JSON.stringify(mos, undefined, 4)
     );
   } catch (err) {
     console.error(err);
@@ -142,4 +156,120 @@ app();
 
 function lastNFromArray<T>(n: number, values: T[]): T[] {
   return values.slice(-n);
+}
+
+interface IReference {
+  displayName: string;
+  url: string;
+}
+
+interface IAnalysis {
+  description: string;
+  reference: IReference[];
+  redFlags: string[];
+  greenFlags: string[];
+
+  score: number;
+}
+
+interface IWarrenBuffettAnalysis extends IAnalysis {
+  notes: string;
+  desiredGrowth: number;
+  periods: number[];
+  cf_cfo: number[];
+  revenue: number[];
+  ppe_net: number[];
+  total_capEx: number[];
+  shares_outstanding: number[];
+
+  revenueGrowthPerYear: number[];
+
+  ppeForADollar: number[];
+
+  growthCapEx: number[];
+
+  maintenanceCapEx: number[];
+
+  owersEarnings: number[];
+
+  ownersEarningAvg3: number;
+  ourMarketCapPrice: number;
+  currentSharesOutstanding: number;
+  buyPrice: number;
+  sellPrice: number;
+}
+
+function analyseWithWarrenBuffetsMethod(
+  stats: any,
+  desiredGrowth: number
+): IWarrenBuffettAnalysis {
+  const annual = stats.data.data.financials.annual;
+  const periods: number[] = lastNFromArray<string>(10, annual.period_end_date)
+    .map((x) => x.split('-')[0])
+    .map((x) => Number(x));
+
+  const cf_cfo10 = lastNFromArray<number>(10, annual.cf_cfo);
+  const revenue10 = lastNFromArray<number>(10, annual.revenue);
+  const ppe_net10 = lastNFromArray<number>(10, annual.ppe_net);
+  const total_capex10 = lastNFromArray<number>(10, annual.capex);
+  const sharesOutstanding10 = lastNFromArray<number>(10, annual.shares_basic);
+
+  const revenueGrowthPerYear10 = revenue10.map((val, idx, arr) => {
+    if (idx === 0) {
+      return 0;
+    }
+    return arr[idx] - arr[idx - 1];
+  });
+
+  const ppeForADollar10 = ppe_net10.map((ppe, idx) => ppe / revenue10[idx]);
+
+  const growthCapEx10 = revenueGrowthPerYear10.map(
+    (rev, idx) => rev * ppeForADollar10[idx]
+  );
+
+  const maintenanceCapEx10 = total_capex10.map(
+    (cap, idx) => cap + growthCapEx10[idx]
+  );
+
+  const ownersEarnings10 = cf_cfo10.map(
+    (cfo, idx) => cfo + maintenanceCapEx10[idx]
+  );
+
+  const ownersEarningAvg3 =
+    (ownersEarnings10[9] + ownersEarnings10[8] + ownersEarnings10[7]) / 3;
+
+  const ourMarketCapPrice = ownersEarningAvg3 * (1 / desiredGrowth);
+
+  const currentSharesOutstanding = sharesOutstanding10[9];
+
+  return {
+    description: 'Warren Buffett valuation method.',
+    notes: 'See spreadsheet Warrent Buffet Evaluation.xlsx',
+    greenFlags: [],
+    redFlags: [],
+    reference: [
+      {
+        displayName: 'Section 5 - How Warren Buffett values Businesses.',
+        url: 'https://profitful.online/courses/introduction-to-stock-analysis'
+      }
+    ],
+    periods,
+    desiredGrowth,
+    cf_cfo: cf_cfo10,
+    ppe_net: ppe_net10,
+    revenue: revenue10,
+    shares_outstanding: sharesOutstanding10,
+    revenueGrowthPerYear: revenueGrowthPerYear10,
+    total_capEx: total_capex10,
+    ppeForADollar: ppeForADollar10,
+    growthCapEx: growthCapEx10,
+    maintenanceCapEx: maintenanceCapEx10,
+    owersEarnings: ownersEarnings10,
+    ownersEarningAvg3,
+    ourMarketCapPrice,
+    currentSharesOutstanding,
+    buyPrice: ourMarketCapPrice / currentSharesOutstanding,
+    sellPrice: (ourMarketCapPrice / currentSharesOutstanding) * 2,
+    score: 0
+  };
 }
