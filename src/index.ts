@@ -7,6 +7,8 @@ async function app() {
   var myArgs = process.argv.slice(2);
   const symbol = myArgs[0];
 
+  const overrideGrowth = myArgs[1];
+
   const path = `${config.path}/${symbol}`;
 
   const requiredPaths = [path, `${path}/05-mos`];
@@ -56,6 +58,11 @@ async function app() {
     growth = 25;
   }
 
+  if (overrideGrowth) {
+    growthNotes += ` We overode growth to be ${overrideGrowth}`;
+    growth = Number(overrideGrowth);
+  }
+
   const growthAnalysis = {
     FCF: stats['FFC'],
     ourGrowth: ourGrowth,
@@ -76,6 +83,7 @@ async function app() {
   const dcfAnalysis = {
     calculator: 'https://tradebrains.in/dcf-calculator/',
     fcf: Math.round(stats['FreeCashFlowAverage']).toString(),
+    overrideGrowth,
     cash_and_equiv: Math.round(currentcash_and_equiv).toString(),
     longTermDebt: Math.round(currentLongTermDebt).toString(),
     sharesOutstanding: Math.round(currentShares_diluted).toString(),
