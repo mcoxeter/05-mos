@@ -83,7 +83,6 @@ async function app() {
   const dcfAnalysis = {
     calculator: 'https://tradebrains.in/dcf-calculator/',
     fcf: Math.round(stats['FreeCashFlowAverage']).toString(),
-    overrideGrowth,
     cash_and_equiv: Math.round(currentcash_and_equiv).toString(),
     longTermDebt: Math.round(currentLongTermDebt).toString(),
     sharesOutstanding: Math.round(currentShares_diluted).toString(),
@@ -105,6 +104,7 @@ async function app() {
   const mos = {
     type: '05-mos',
     symbol,
+    overrideGrowth,
     references: [],
     date: nowDateStr,
 
@@ -185,22 +185,29 @@ interface IWarrenBuffettAnalysis extends IAnalysis {
   desiredGrowth: number;
   periods: number[];
   cf_cfo: number[];
+  cf_cfo_notes: string;
   revenue: number[];
+  revenueAvg3: number;
+  revenueAvg3_notes: string;
   ppe_net: number[];
+  ppe_net_notes: string;
   total_capEx: number[];
+  total_capEx_notes: string;
   shares_outstanding: number[];
 
   revenueGrowthPerYear: number[];
+  revenueGrowthPerYear_notes: string;
 
   ppeForADollar: number[];
+  ppeForADollar_notes: string;
 
   growthCapEx: number[];
+  growthCapEx_notes: string;
 
   maintenanceCapEx: number[];
 
-  owersEarnings: number[];
+  ownersEarnings: number[];
 
-  ownersEarningAvg3: number;
   ourMarketCapPrice: number;
   currentSharesOutstanding: number;
   buyPrice: number;
@@ -243,10 +250,9 @@ function analyseWithWarrenBuffetsMethod(
     (cfo, idx) => cfo + maintenanceCapEx10[idx]
   );
 
-  const ownersEarningAvg3 =
-    (ownersEarnings10[9] + ownersEarnings10[8] + ownersEarnings10[7]) / 3;
+  const revenueAvg3 = (revenue10[9] + revenue10[8] + revenue10[7]) / 3;
 
-  const ourMarketCapPrice = ownersEarningAvg3 * (1 / desiredGrowth);
+  const ourMarketCapPrice = revenueAvg3 * (1 / desiredGrowth);
 
   const currentSharesOutstanding = sharesOutstanding10[9];
 
@@ -264,16 +270,25 @@ function analyseWithWarrenBuffetsMethod(
     periods,
     desiredGrowth,
     cf_cfo: cf_cfo10,
+    cf_cfo_notes: 'Cash Flow: Cash flow from operating activities',
     ppe_net: ppe_net10,
+    ppe_net_notes:
+      'Balance Sheet: Total Assets > Total non-current assets > net PPE',
     revenue: revenue10,
+    revenueAvg3,
+    revenueAvg3_notes: 'The average revenue over the last three years',
     shares_outstanding: sharesOutstanding10,
     revenueGrowthPerYear: revenueGrowthPerYear10,
+    revenueGrowthPerYear_notes:
+      'amount the revenue increases between the years',
     total_capEx: total_capex10,
+    total_capEx_notes: 'Cash Flow statement.',
     ppeForADollar: ppeForADollar10,
+    ppeForADollar_notes: 'ppe_net / revenue',
     growthCapEx: growthCapEx10,
+    growthCapEx_notes: 'ownersEarningAvg3 * ppeForADollar',
     maintenanceCapEx: maintenanceCapEx10,
-    owersEarnings: ownersEarnings10,
-    ownersEarningAvg3,
+    ownersEarnings: ownersEarnings10,
     ourMarketCapPrice,
     currentSharesOutstanding,
     buyPrice: ourMarketCapPrice / currentSharesOutstanding,
