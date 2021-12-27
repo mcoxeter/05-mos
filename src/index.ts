@@ -5,11 +5,31 @@ const config = require('./config.json');
 
 async function app() {
   var myArgs = process.argv.slice(2);
-  const symbol = myArgs[0];
+  if (myArgs.length === 0) {
+    // When no arguments are passed then we use the evaluate.json file as a list of stocks to evaluate.
+    const path = `${config.path}`;
+    const evaluationList = require(`${path}/evaluate.json`);
 
+    console.log('Evaluating stocks from evaluate.json');
+
+    for (const evaluate of evaluationList.evaluate) {
+      await evaluateStock(evaluate.Symbol, evaluate.OverrideGrowth);
+    }
+    return;
+  }
+
+  const symbol = myArgs[0];
   const overrideGrowth = myArgs[1];
 
-  const path = `${config.path}/${symbol}`;
+  await evaluateStock(symbol, overrideGrowth);
+}
+
+async function evaluateStock(
+  symbol: string,
+  overrideGrowth?: string
+): Promise<void> {
+  console.log('Procesing stock ' + symbol);
+  const path = `${config.path}/Evaluation/${symbol}`;
 
   const requiredPaths = [path, `${path}/05-mos`];
 
@@ -33,19 +53,40 @@ async function app() {
     .find(() => true);
 
   const stats = require(`${path}/01-data/${lastDataFile}`);
+  if (!stats.data.data.financials) {
+    write(`${path}/05-mos/${nowDateStr}.json`, {
+      type: '05-mos',
+      redFlags: ['Company not found'],
+      symbol,
+      date: nowDateStr,
+      rating: 0
+    });
+    return;
+  }
+
+  const annual = stats.data.data.financials.annual;
+  if (annual.revenue.length < 10) {
+    write(`${path}/05-mos/${nowDateStr}.json`, {
+      type: '05-mos',
+      redFlags: ['Company has not been reporting results for 10 years'],
+      symbol,
+      date: nowDateStr,
+      rating: 0
+    });
+    return;
+  }
 
   const browser = await webkit.launch({
     headless: true
   });
   const page = await browser.newPage();
-  const annual = stats.data.data.financials.annual;
 
   const fcf10 = add_values(
     lastNFromArray(10, annual.cf_cfo),
     lastNFromArray(10, annual.cfi_ppe_purchases)
   );
 
-  const ourGrowth = cagr(fcf10[6], fcf10[9], 3);
+  const ourGrowth = cagr(fcf10[7], fcf10[9], 3);
 
   const analystsGrowthNext5Years = stats[
     'Growth Next 5 Years (per annum)'
@@ -151,17 +192,18 @@ async function app() {
     await intrinsicValueAfterDiscount.inputValue()
   );
 
-  console.log('Writing ', `${path}/05-mos/${nowDateStr}.json`);
+  write(`${path}/05-mos/${nowDateStr}.json`, mos);
+
+  await browser.close();
+}
+
+function write(file: string, screen: any): void {
+  console.log(`Writing ${file}`);
   try {
-    fs.writeFileSync(
-      `${path}/05-mos/${nowDateStr}.json`,
-      JSON.stringify(mos, undefined, 4)
-    );
+    fs.writeFileSync(file, JSON.stringify(screen, undefined, 4));
   } catch (err) {
     console.error(err);
   }
-
-  await browser.close();
 }
 
 async function enterString(page: Page, id: string, value: string) {
@@ -185,16 +227,22 @@ function add_values(values1: number[], values2: number[]): number[] {
 }
 
 function cagr(start: number, end: number, number: number) {
+  console.log('cagr', start, end, number);
+  let offsetStart = start;
+  let offsetEnd = end;
+  if (start < 0) {
+    offsetStart += Math.abs(start);
+    offsetEnd += Math.abs(start);
+  }
+
+  if (end < 0) {
+    offsetStart += Math.abs(end);
+    offsetEnd += Math.abs(end);
+  }
+
   // CAGR = Compound Annual Growth Rate
   // https://www.investopedia.com/terms/c/cagr.asp
-  // http://fortmarinus.com/blog/1214/
-
-  const step1 = end - start + Math.abs(start);
-  const step2 = step1 / Math.abs(start);
-  const step3 = Math.pow(step2, 1 / number);
-  const step4 = (step3 - 1) * 100;
-
-  return Math.round(step4);
+  return Math.round((Math.pow(offsetEnd / offsetStart, 1 / number) - 1) * 100);
 }
 
 app();
