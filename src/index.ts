@@ -38,9 +38,14 @@ async function app() {
     headless: true
   });
   const page = await browser.newPage();
-
-  const ourGrowth = Number(stats['Growth'].replace('%', ''));
   const annual = stats.data.data.financials.annual;
+
+  const fcf10 = add_values(
+    lastNFromArray(10, annual.cf_cfo),
+    lastNFromArray(10, annual.cfi_ppe_purchases)
+  );
+
+  const ourGrowth = cagr(fcf10[6], fcf10[9], 3);
 
   const analystsGrowthNext5Years = stats[
     'Growth Next 5 Years (per annum)'
@@ -63,13 +68,20 @@ async function app() {
     growth = Number(overrideGrowth);
   }
 
+  const periods: number[] = lastNFromArray<string>(10, annual.period_end_date)
+    .map((x) => x.split('-')[0])
+    .map((x) => Number(x));
+
   const growthAnalysis = {
-    FCF: stats['FFC'],
-    ourGrowth: ourGrowth,
+    periods,
+    fcf: fcf10,
+    ourGrowth,
     analystsGrowthNext5Years,
     growth,
     growthNotes
   };
+
+  const fcfAverage3Years = Math.round((fcf10[9] + fcf10[8] + fcf10[7]) / 3);
 
   const lt_debt10 = lastNFromArray<number>(10, annual.lt_debt);
   const currentLongTermDebt = lt_debt10[9];
@@ -82,7 +94,7 @@ async function app() {
 
   const dcfAnalysis = {
     calculator: 'https://tradebrains.in/dcf-calculator/',
-    fcf: Math.round(stats['FreeCashFlowAverage']).toString(),
+    fcf: fcfAverage3Years.toString(),
     cash_and_equiv: Math.round(currentcash_and_equiv).toString(),
     longTermDebt: Math.round(currentLongTermDebt).toString(),
     sharesOutstanding: Math.round(currentShares_diluted).toString(),
@@ -158,6 +170,31 @@ async function enterString(page: Page, id: string, value: string) {
     await field.scrollIntoViewIfNeeded();
     await field.fill(value);
   }
+}
+
+function add_values(values1: number[], values2: number[]): number[] {
+  if (values1.length !== values2.length) {
+    throw new Error('values have different lengths');
+  }
+
+  let result: number[] = [];
+  for (let i = 0; i < values1.length; i++) {
+    result = [...result, values1[i] + values2[i]];
+  }
+  return result;
+}
+
+function cagr(start: number, end: number, number: number) {
+  // CAGR = Compound Annual Growth Rate
+  // https://www.investopedia.com/terms/c/cagr.asp
+  // http://fortmarinus.com/blog/1214/
+
+  const step1 = end - start + Math.abs(start);
+  const step2 = step1 / Math.abs(start);
+  const step3 = Math.pow(step2, 1 / number);
+  const step4 = (step3 - 1) * 100;
+
+  return Math.round(step4);
 }
 
 app();
