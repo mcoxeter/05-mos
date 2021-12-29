@@ -227,22 +227,16 @@ function add_values(values1: number[], values2: number[]): number[] {
 }
 
 function cagr(start: number, end: number, number: number) {
-  console.log('cagr', start, end, number);
-  let offsetStart = start;
-  let offsetEnd = end;
-  if (start < 0) {
-    offsetStart += Math.abs(start);
-    offsetEnd += Math.abs(start);
-  }
-
-  if (end < 0) {
-    offsetStart += Math.abs(end);
-    offsetEnd += Math.abs(end);
-  }
-
   // CAGR = Compound Annual Growth Rate
   // https://www.investopedia.com/terms/c/cagr.asp
-  return Math.round((Math.pow(offsetEnd / offsetStart, 1 / number) - 1) * 100);
+  // http://fortmarinus.com/blog/1214/
+
+  const step1 = end - start + Math.abs(start);
+  const step2 = step1 / Math.abs(start);
+  const step3 = Math.pow(step2, 1 / number);
+  const step4 = (step3 - 1) * 100;
+
+  return Math.round(step4);
 }
 
 app();
