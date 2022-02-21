@@ -233,7 +233,10 @@ function cagr(start: number, end: number, number: number) {
 
   const step1 = end - start + Math.abs(start);
   const step2 = step1 / Math.abs(start);
-  const step3 = Math.pow(step2, 1 / number);
+  let step3 = Math.pow(step2, 1 / number);
+  if (Object.is(NaN, step3)) {
+    step3 = 0;
+  }
   const step4 = (step3 - 1) * 100;
 
   return Math.round(step4);
